@@ -7,7 +7,8 @@
 'use strict';
 
 
-var deflate = require('pako/lib/deflate.js').deflate;
+var pako = require('pako/lib/deflate.js');
+var fflate = require('fflate');
 
 
 function ulong(t) {
@@ -86,9 +87,9 @@ var SIZEOF = {
   SFNT_TABLE_ENTRY: 16
 };
 
-function woffAppendMetadata(src, metadata) {
-
-  var zdata =  deflate(metadata);
+function woffAppendMetadata(src, metadata, compressor) {
+  // compressor option: 'pako' or 'fflate', default: 'pako'
+  var zdata = compressor === 'fflate' ? fflate.zlibSync(metadata) : pako.deflate(metadata);
 
   src.writeUint32BE(src.length + zdata.length, WOFF_OFFSET.SIZE);
   src.writeUint32BE(src.length, WOFF_OFFSET.META_OFFSET);
@@ -201,7 +202,7 @@ function ttf2woff(arr, options) {
       sfntData.writeUint32BE(checksumAdjustment, SFNT_ENTRY_OFFSET.CHECKSUM_ADJUSTMENT);
     }
 
-    var res = deflate(sfntData);
+    var res = options.compressor === 'fflate' ? fflate.zlibSync(sfntData) : pako.deflate(sfntData);
 
     var compLength;
 
@@ -249,7 +250,7 @@ function ttf2woff(arr, options) {
   }
 
   if (options.metadata) {
-    out = woffAppendMetadata(out, options.metadata);
+    out = woffAppendMetadata(out, options.metadata, options.compressor);
   }
 
   return new Uint8Array(out.buffer, out.byteOffset, out.length);
